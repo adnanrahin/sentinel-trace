@@ -143,8 +143,8 @@ def test_notify_test_cli_sends_email_when_env_set(monkeypatch, tmp_path) -> None
 
 
 def test_evidence_template_uses_os_user(monkeypatch) -> None:
-    monkeypatch.setenv("USERNAME", "rahin")
-    monkeypatch.setenv("COMPUTERNAME", "DEV-BOX")
+    monkeypatch.setenv("USERNAME", "operator")
+    monkeypatch.setenv("COMPUTERNAME", "ci-host")
     payload = sanitize_incident_payload(
         incident_id="case-1",
         action="block",
@@ -154,13 +154,13 @@ def test_evidence_template_uses_os_user(monkeypatch) -> None:
         names=["DATABRICKS_CLIENT_SECRET"],
         source="<cursor-chat>",
     )
-    assert payload["user"] == "rahin"
-    assert payload["host"] == "DEV-BOX"
+    assert payload["user"] == "operator"
+    assert payload["host"] == "ci-host"
     assert payload["where"] == "Cursor chat"
     body = render_evidence_message(payload)
     assert body.startswith("Observed\nDATABRICKS_CLIENT_SECRET\n")
-    assert "User: rahin" in body
-    assert "Host: DEV-BOX" in body
+    assert "User: operator" in body
+    assert "Host: ci-host" in body
 
 
 def test_test_alert_payload_has_no_prompt_or_key() -> None:
