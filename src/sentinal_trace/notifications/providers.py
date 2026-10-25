@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import os
 import smtplib
 import ssl
@@ -28,6 +27,47 @@ _NOTIFY_KEYS = frozenset(
 
 class NotificationError(RuntimeError):
     pass
+
+
+_SUBTYPE_LABEL = {
+    "aws_access_key_id": "AWS_ACCESS_KEY_ID",
+    "github_pat": "GITHUB_PAT",
+    "github_fine_grained_pat": "GITHUB_PAT",
+    "stripe_secret_key": "STRIPE_SECRET_KEY",
+    "slack_token": "SLACK_TOKEN",
+    "jwt": "JWT",
+    "connection_string": "CONNECTION_STRING",
+    "pem_private_key": "PRIVATE KEY",
+    "assigned_secret": "SECRET",
+    "env_assigned_secret": "SECRET",
+}
+
+
+def names_from_findings(findings: list[Any]) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for finding in findings:
+        label = None
+        for factor in getattr(finding, "risk_factors", []) or []:
+            text = str(factor)
+            if text.startswith("name:") and len(text) > 5:
+                label = text[5:].strip().upper()
+                break
+        if not label:
+            subtype = str(getattr(finding, "subtype", "") or "")
+            label = _SUBTYPE_LABEL.get(subtype, subtype.replace("-", "_").upper() if subtype else "")
+        if not label or len(label) > 80 or label in seen:
+            continue
+        seen.add(label)
+        names.append(label)
+    return names
+
+
+def evidence_names(payload: dict[str, Any]) -> list[str]:
+    raw = payload.get("names")
+    if not isinstance(raw, list):
+        return []
+    return [str(item).strip() for item in raw if str(item).strip() and len(str(item)) <= 80]
 
 
 class Notifier(Protocol):
@@ -63,10 +103,10 @@ class PagerDutyNotifier:
             "event_action": "trigger",
             "dedup_key": payload.get("dedupe_key"),
             "payload": {
-                "summary": payload.get("summary", "sentinal-trace incident"),
+                "summary": payload.get("summary", "sentinal-trace"),
                 "severity": payload.get("pagerduty_severity", "error"),
                 "source": "sentinal-trace",
-                "custom_details": payload.get("details", {}),
+                "custom_details": {"names": evidence_names(payload)},
             },
         }
         response = httpx.post("https://events.pagerduty.com/v2/enqueue", json=body, timeout=10.0)
@@ -95,15 +135,12 @@ class EmailNotifier:
         user = unquote(parsed.username) if parsed.username else None
         password = unquote(parsed.password) if parsed.password else None
 
+        names = evidence_names(payload)
         message = EmailMessage()
-        message["Subject"] = str(payload.get("summary", "sentinal-trace security incident"))
+        message["Subject"] = names[0] if names else str(payload.get("incident_id", "sentinal-trace"))
         message["From"] = self.from_addr
         message["To"] = self.to_addr
-        message.set_content(
-            "sentinal-trace detected potentially sensitive content.\n\n"
-            + json.dumps(payload.get("details", {}), indent=2)
-            + "\n\nRaw logs and secrets are not included."
-        )
+        message.set_content("\n".join(names) + "\n" if names else "")
 
         context = ssl.create_default_context()
         if parsed.scheme == "smtps":
@@ -299,17 +336,14 @@ def sanitize_incident_payload(
     category: str | None,
     severity: str | None,
     adapter: str,
+    names: list[str] | None = None,
 ) -> dict[str, Any]:
+    labels = evidence_names({"names": list(names or [])})
+    summary = "\n".join(labels) if labels else incident_id
     return {
-        "summary": f"sentinal-trace detected a possible credential leak ({severity or 'n/a'})",
-        "details": {
-            "incident_id": incident_id,
-            "action": action,
-            "category": category,
-            "severity": severity,
-            "adapter": adapter,
-            "note": "The pasted content is not included.",
-        },
+        "summary": summary,
+        "names": labels,
+        "incident_id": incident_id,
         "dedupe_key": f"sentinal-trace:{incident_id}:{action}",
         "pagerduty_severity": "critical" if severity in {"SEV-0", "SEV-1"} else "warning",
     }

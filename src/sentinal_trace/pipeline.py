@@ -60,13 +60,21 @@ class ScanSession:
         except Exception:
             return None
         if action in self.policy.notify_on and incident_id:
-            self._alert(incident_id, action, top)
+            self._alert(incident_id, action, result.findings, top)
         return incident_id
 
-    def _alert(self, incident_id: str, action: PolicyAction, top: Finding | None) -> None:
+    def _alert(
+        self,
+        incident_id: str,
+        action: PolicyAction,
+        findings: list[Finding],
+        top: Finding | None,
+    ) -> None:
         notifiers = self._active_notifiers()
         if not notifiers:
             return
+        from sentinal_trace.notifications.providers import names_from_findings
+
         try:
             enqueue_incident(
                 self.store,
@@ -76,6 +84,7 @@ class ScanSession:
                 severity=top.severity.value if top else None,
                 adapter="sentinal-trace",
                 providers=list(notifiers),
+                names=names_from_findings(findings),
             )
             drain_outbox(self.store, notifiers)
         except Exception:

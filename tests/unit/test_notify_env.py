@@ -133,7 +133,8 @@ def test_notify_test_cli_sends_email_when_env_set(monkeypatch, tmp_path) -> None
     result = CliRunner().invoke(app, ["notify-test"])
     assert result.exit_code == 0, result.output
     assert sent
-    assert sent[0]["details"]["action"] == "notify-test"
+    assert sent[0]["names"] == ["NOTIFY_TEST"]
+    assert "leak" not in str(sent).lower()
     assert SYNTHETIC_AWS not in str(sent)
 
 
@@ -144,8 +145,11 @@ def test_test_alert_payload_has_no_prompt_or_key() -> None:
         category="credential",
         severity="SEV-0",
         adapter="notify-test",
+        names=["DATABRICKS_CLIENT_SECRET"],
     )
     blob = str(payload)
     assert "prompt" not in blob
     assert SYNTHETIC_AWS not in blob
-    assert payload["details"]["note"]
+    assert payload["names"] == ["DATABRICKS_CLIENT_SECRET"]
+    assert "security" not in blob.lower()
+    assert "leak" not in blob.lower()

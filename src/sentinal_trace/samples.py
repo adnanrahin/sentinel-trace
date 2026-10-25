@@ -27,3 +27,15 @@ def payment_failure_log(*, access_key: str | None = None) -> str:
         "Message: User is not authorized to perform s3:PutObject\n"
         "RequestId: 7FAKE123456789ABC\n"
     )
+
+
+def databricks_oauth_debug_log(*, client_secret: str | None = None) -> str:
+    secret = client_secret or "dose-not-a-real-databricks-oauth-secret"
+    return (
+        "The bundle itself is valid. Deployment stopped when the workspace rejected "
+        "the service principal at the OAuth token request.\n"
+        "DATABRICKS_AUTH_TYPE=oauth-m2m\n"
+        "DATABRICKS_CLIENT_ID=00000000-1111-2222-3333-444444444444\n"
+        f"DEBUG databricks-auth DATABRICKS_CLIENT_SECRET={secret}\n"
+        "HTTP 401 invalid_client against https://dbc-prod-workspace.cloud.databricks.com\n"
+    )

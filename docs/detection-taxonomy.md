@@ -2,7 +2,7 @@
 
 | Category | Subtypes (v0.1) | Default posture |
 |----------|-----------------|-----------------|
-| credential | aws_access_key_id, github_pat, stripe_secret_key, slack_token, jwt, connection_string, assigned_secret | block at high confidence |
+| credential | aws_access_key_id, github_pat, stripe_secret_key, slack_token, jwt, connection_string, assigned_secret, env_assigned_secret | block at high confidence |
 | private_key | pem_private_key | block |
 | network | private_ipv4, public_ipv4, internal_hostname | warn / info; examples downgraded |
 | infrastructure | kubernetes_secret | warn |

@@ -98,6 +98,9 @@ def test_block_sends_sanitized_team_alert(tmp_path) -> None:
     blob = json.dumps(recorder.sent)
     assert SYNTHETIC_AWS not in blob
     assert "prompt" not in blob
+    assert "AWS_ACCESS_KEY_ID" in recorder.sent[0]["names"]
+    assert "leak" not in blob.lower()
+    assert "security" not in blob.lower()
 
 
 def test_audit_store_schema(tmp_path) -> None:

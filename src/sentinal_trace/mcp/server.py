@@ -202,6 +202,8 @@ class McpServer:
                     "cred.connection_string",
                     "cred.pem_private_key",
                     "cred.assignment",
+                    "cred.env_assignment",
+                    "cred.env_name",
                     "net.ipv4",
                     "net.internal_host",
                     "infra.k8s_secret",

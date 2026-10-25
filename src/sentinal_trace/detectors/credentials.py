@@ -72,6 +72,21 @@ _ASSIGNMENT = re.compile(
     r"\s*[:=]\s*(?P<q>['\"]?)(?P<val>[^\s'\"#]{12,})(?P=q)"
 )
 
+# DATABRICKS_CLIENT_SECRET=… is missed by _ASSIGNMENT because SECRET is preceded by _.
+_ENV_SECRET_KEY = r"[A-Z][A-Z0-9_]*_(?:SECRET|PASSWORD|PASSWD|TOKEN|API[_-]?KEY|ACCESS[_-]?KEY)"
+_ENV_ASSIGNMENT = re.compile(
+    rf"(?i)(?:^|[\s,;{{`])(?P<key>{_ENV_SECRET_KEY})"
+    r"\s*[:=]\s*(?P<q>['\"]?)(?P<val>[^\s'\"#`]{12,})(?P=q)"
+)
+_ENV_NAME = re.compile(rf"(?i)(?:^|[\s,;{{`])(?P<key>{_ENV_SECRET_KEY})\s*=")
+
+
+def _placeholder_value(value: str) -> bool:
+    compact = value.strip("`'\"")
+    if compact in {"...", "****", "<redacted>", "REDACTED", "redacted"}:
+        return True
+    return len(compact) >= 3 and set(compact) <= {".", "*", "x", "X"}
+
 _PRIVATE_KEY = re.compile(
     r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
     r"[\s\S]+?"
@@ -121,6 +136,53 @@ class CredentialDetector(Detector):
                 )
             )
         occupied = {(m.start, m.end) for m in matches}
+        for found in _ENV_ASSIGNMENT.finditer(text):
+            value = found.group("val")
+            start, end = found.start("val"), found.end("val")
+            if _placeholder_value(value) or any(start >= s and end <= e for s, e in occupied):
+                continue
+            occupied.add((start, end))
+            key = found.group("key").upper()
+            matches.append(
+                RawMatch(
+                    start=start,
+                    end=end,
+                    value=value,
+                    category=Category.CREDENTIAL,
+                    subtype="env_assigned_secret",
+                    severity=Severity.SEV_0,
+                    confidence=Confidence.HIGH,
+                    rule_id="cred.env_assignment",
+                    risk_score=88,
+                    remediation="Rotate the env secret and stop pasting *_SECRET / *_TOKEN assignments into chats.",
+                    risk_factors=("env_assignment", f"name:{key}"),
+                )
+            )
+        named = {factor.split(":", 1)[1] for m in matches for factor in m.risk_factors if factor.startswith("name:")}
+        for found in _ENV_NAME.finditer(text):
+            key = found.group("key").upper()
+            if key in named:
+                continue
+            start, end = found.start("key"), found.end("key")
+            if any(start >= s and end <= e for s, e in occupied):
+                continue
+            occupied.add((start, end))
+            named.add(key)
+            matches.append(
+                RawMatch(
+                    start=start,
+                    end=end,
+                    value=key,
+                    category=Category.CREDENTIAL,
+                    subtype="env_assigned_secret",
+                    severity=Severity.SEV_1,
+                    confidence=Confidence.HIGH,
+                    rule_id="cred.env_name",
+                    risk_score=80,
+                    remediation="A secret-named env var was pasted.",
+                    risk_factors=("env_name", f"name:{key}"),
+                )
+            )
         for found in _ASSIGNMENT.finditer(text):
             value = found.group("val")
             start, end = found.start("val"), found.end("val")
