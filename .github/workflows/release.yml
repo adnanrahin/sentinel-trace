@@ -49,7 +49,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
           python -m build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sentinal-trace-wheel-${{ github.sha }}
           path: |
@@ -123,7 +123,7 @@ jobs:
             echo "whl=${WHLS[0]}"
             echo "sdist=${SDISTS[0]}"
           } >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sentinal-trace-release-${{ steps.version.outputs.tag }}
           path: |
