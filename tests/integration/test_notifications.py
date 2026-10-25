@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+from sentinal_trace.audit.store import AuditStore
+from sentinal_trace.notifications.dispatcher import drain_outbox, enqueue_incident
+from sentinal_trace.pipeline import ScanSession
+from tests.conftest import SYNTHETIC_AWS
+
+
+class RecordingNotifier:
+    name = "webhook"
+
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    def send(self, payload: dict) -> None:
+        self.sent.append(payload)
+
+
+class BoomNotifier:
+    name = "pagerduty"
+
+    def send(self, payload: dict) -> None:
+        raise OSError("network down")
+
+
+def test_outbox_sanitized_and_deduped(session: ScanSession) -> None:
+    incident = session.store.record_incident(
+        adapter="cli",
+        source="<input>",
+        category="credential",
+        severity="SEV-0",
+        confidence="confirmed",
+        action="block",
+        rule_version="1",
+        fingerprint="abc",
+    )
+    enqueue_incident(
+        session.store,
+        incident_id=incident,
+        action="block",
+        category="credential",
+        severity="SEV-0",
+        adapter="cli",
+        providers=["webhook"],
+    )
+    enqueue_incident(
+        session.store,
+        incident_id=incident,
+        action="block",
+        category="credential",
+        severity="SEV-0",
+        adapter="cli",
+        providers=["webhook"],
+    )
+    recorder = RecordingNotifier()
+    drain_outbox(session.store, {"webhook": recorder})
+    assert len(recorder.sent) == 1
+    assert SYNTHETIC_AWS not in str(recorder.sent[0])
+    assert "prompt" not in str(recorder.sent[0])
+
+
+def test_notification_failure_does_not_raise(session: ScanSession) -> None:
+    incident = session.store.record_incident(
+        adapter="cli",
+        source=None,
+        category="credential",
+        severity="SEV-0",
+        confidence="high",
+        action="block",
+        rule_version="1",
+        fingerprint=None,
+    )
+    enqueue_incident(
+        session.store,
+        incident_id=incident,
+        action="block",
+        category="credential",
+        severity="SEV-0",
+        adapter="cli",
+        providers=["pagerduty"],
+    )
+    drain_outbox(session.store, {"pagerduty": BoomNotifier()})
+    pending = session.store.pending_notifications()
+    assert pending
+
+
+def test_audit_store_schema(tmp_path) -> None:
+    store = AuditStore(tmp_path / "audit.db")
+    store.close()
+    assert (tmp_path / "audit.db").exists()

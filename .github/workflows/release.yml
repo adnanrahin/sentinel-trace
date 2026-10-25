@@ -1,0 +1,169 @@
+# PR / push: unit tests → wheel artifact after tests pass.
+# Merge/push to main|master: auto-bump patch version, tag, and GitHub Release
+# with .whl so users can pip-install and run MCP (`sentinal-trace mcp`).
+
+name: Release
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q --tb=short
+
+  build-artifact:
+    name: Build & upload wheel artifact
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sentinal-trace-wheel-${{ github.sha }}
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Tag & GitHub Release
+    if: >
+      github.event_name == 'push'
+      && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      && !contains(github.event.head_commit.message, '[skip ci]')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Compute next version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [[ -z "$latest" ]]; then
+            next="$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -1)"
+            if [[ -z "$next" ]]; then
+              next="0.1.0"
+            fi
+          else
+            ver="${latest#v}"
+            IFS=. read -r major minor patch <<< "$ver"
+            patch=$((patch + 1))
+            next="${major}.${minor}.${patch}"
+          fi
+          echo "next=${next}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${next}" >> "$GITHUB_OUTPUT"
+      - name: Bump version in pyproject.toml and __version__.py
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.next }}"/' pyproject.toml
+          grep '^version =' pyproject.toml
+          ver="${{ steps.version.outputs.next }}"
+          printf '"""%s"""\n\n__version__ = "%s"\n' "$ver" "$ver" > src/sentinal_trace/__version__.py
+      - name: Install build tools & build
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+          ls -la dist/
+      - name: Verify wheel assets exist
+        id: assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t WHLS < <(ls -1 dist/*.whl)
+          mapfile -t SDISTS < <(ls -1 dist/*.tar.gz)
+          if [[ ${#WHLS[@]} -lt 1 || ${#SDISTS[@]} -lt 1 ]]; then
+            echo "Expected .whl and .tar.gz in dist/" >&2
+            exit 1
+          fi
+          {
+            echo "whl=${WHLS[0]}"
+            echo "sdist=${SDISTS[0]}"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sentinal-trace-release-${{ steps.version.outputs.tag }}
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 90
+      - name: Commit version bump, tag, and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- pyproject.toml src/sentinal_trace/__version__.py; then
+            echo "No version changes; skipping commit."
+          else
+            git add pyproject.toml src/sentinal_trace/__version__.py
+            git commit -m "chore: bump version to ${{ steps.version.outputs.next }} [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+          if git rev-parse -q --verify "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null; then
+            echo "Tag ${{ steps.version.outputs.tag }} already exists"
+          else
+            git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
+            git push origin "${{ steps.version.outputs.tag }}"
+          fi
+      - name: Create GitHub Release and attach wheel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          WHL="${{ steps.assets.outputs.whl }}"
+          SDIST="${{ steps.assets.outputs.sdist }}"
+          NOTES="$(printf '%s\n\n### Install\n\n```bash\npip install %s\n# MCP (Cursor / Claude Desktop):\nsentinal-trace mcp\n```\n' \
+            "sentinal-trace ${TAG}" \
+            "https://github.com/${{ github.repository }}/releases/download/${TAG}/$(basename "$WHL")")"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$WHL" "$SDIST" --clobber
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" "$WHL" "$SDIST" --title "$TAG" --notes "$NOTES"
+          fi

@@ -1,0 +1,33 @@
+# Copy to ~/.sentinal-trace/policy.yaml or .sentinal-trace.yaml in a repo.
+version: "1"
+default_action: allow
+rules:
+  - id: block-confirmed-credentials
+    match:
+      categories: [credential, private_key, composite]
+      min_severity: SEV-1
+      min_confidence: high
+    action: block
+  - id: redact-medium-credentials
+    match:
+      categories: [credential]
+      min_severity: SEV-2
+    action: redact
+  - id: warn-infrastructure
+    match:
+      categories: [infrastructure]
+    action: warn
+  - id: warn-internal-network
+    match:
+      categories: [network]
+      min_severity: SEV-3
+    action: warn
+  - id: audit-pii
+    match:
+      categories: [pii, identifier]
+    action: audit
+exceptions:
+  - id: synthetic-fixtures
+    path_glob: "**/tests/fixtures/**"
+    reason: "Labeled synthetic test fixtures"
+    action: audit

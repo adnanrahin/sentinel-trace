@@ -1,0 +1,7 @@
+SYNTHETIC FIXTURE — placeholders only, not live credentials.
+Vendor-shaped keys (AWS / GitHub / Stripe) are assembled in tests/conftest.py
+at runtime so this file can be stored in git.
+
+Authorization: Bearer synthetic-fixture-token-not-a-live-credential
+postgres://synthetic:synthetic@localhost:5432/demo
+kind: Secret

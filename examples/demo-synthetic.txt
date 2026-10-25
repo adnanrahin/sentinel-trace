@@ -1,0 +1,14 @@
+SENTINAL-TRACE SYNTHETIC DEMO — placeholders only. Not live credentials.
+
+These lines are shaped like a pasted log, but they intentionally do NOT use
+vendor key prefixes that public Git hosts reject (for example Stripe sk_test keys).
+Pytest builds those patterns in memory; it does not store them in this file.
+
+# example / documentation / synthetic
+Authorization: Bearer synthetic-demo-token-not-a-live-credential
+internal host: api.payments.internal.example.com
+rfc1918 documentation address: 192.168.1.1
+email: demo.user@example.com
+account_id = acme-tenant-0001
+kind: Secret
+connection = postgres://synthetic:synthetic@localhost:5432/demo
