@@ -99,6 +99,9 @@ def test_block_sends_sanitized_team_alert(tmp_path) -> None:
     assert SYNTHETIC_AWS not in blob
     assert "prompt" not in blob
     assert "AWS_ACCESS_KEY_ID" in recorder.sent[0]["names"]
+    assert recorder.sent[0]["user"]
+    assert recorder.sent[0]["when"]
+    assert recorder.sent[0]["host"]
     assert "leak" not in blob.lower()
     assert "security" not in blob.lower()
 

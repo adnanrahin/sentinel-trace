@@ -266,6 +266,7 @@ def notify_test_cmd() -> None:
         severity="SEV-0",
         adapter="notify-test",
         names=["NOTIFY_TEST"],
+        source="<notify-test>",
     )
     errors: dict[str, str] = {}
     for name, notifier in notifiers.items():

@@ -3,8 +3,10 @@ from __future__ import annotations
 import contextlib
 import os
 import smtplib
+import socket
 import ssl
 import sys
+from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Protocol
@@ -70,6 +72,73 @@ def evidence_names(payload: dict[str, Any]) -> list[str]:
     return [str(item).strip() for item in raw if str(item).strip() and len(str(item)) <= 80]
 
 
+def _clean_field(value: str, limit: int = 64) -> str:
+    text = value.strip().replace("\r", " ").replace("\n", " ")
+    return text[:limit]
+
+
+def local_username() -> str:
+    for key in ("USERNAME", "USER", "LOGNAME"):
+        value = os.environ.get(key, "")
+        if value.strip():
+            return _clean_field(value)
+    try:
+        import getpass
+
+        return _clean_field(getpass.getuser())
+    except Exception:
+        return "unknown"
+
+
+def local_host() -> str:
+    for key in ("COMPUTERNAME", "HOSTNAME"):
+        value = os.environ.get(key, "")
+        if value.strip():
+            return _clean_field(value, 128)
+    try:
+        return _clean_field(socket.gethostname(), 128)
+    except OSError:
+        return "unknown"
+
+
+def local_domain() -> str:
+    value = os.environ.get("USERDOMAIN", "").strip()
+    host = local_host()
+    if value and value.lower() not in {host.lower(), "unknown"}:
+        return _clean_field(value)
+    return ""
+
+
+def evidence_when() -> str:
+    return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
+
+
+def evidence_where(adapter: str, source: str | None) -> str:
+    if adapter == "cursor_hook" or source == "<cursor-chat>":
+        return "Cursor chat"
+    if source and source.startswith("<") and source.endswith(">"):
+        return source[1:-1]
+    if source:
+        return _clean_field(Path(source).name, 80)
+    return adapter or "local"
+
+
+def render_evidence_message(payload: dict[str, Any]) -> str:
+    names = evidence_names(payload)
+    lines = ["Observed"]
+    lines.extend(names or ["(unlabeled)"])
+    lines.append("")
+    lines.append(f"User: {payload.get('user') or 'unknown'}")
+    domain = str(payload.get("domain") or "").strip()
+    if domain:
+        lines.append(f"Domain: {domain}")
+    lines.append(f"Host: {payload.get('host') or 'unknown'}")
+    lines.append(f"When: {payload.get('when') or evidence_when()}")
+    lines.append(f"Where: {payload.get('where') or 'local'}")
+    lines.append(f"Id: {payload.get('incident_id') or ''}")
+    return "\n".join(lines) + "\n"
+
+
 class Notifier(Protocol):
     name: str
 
@@ -106,7 +175,14 @@ class PagerDutyNotifier:
                 "summary": payload.get("summary", "sentinal-trace"),
                 "severity": payload.get("pagerduty_severity", "error"),
                 "source": "sentinal-trace",
-                "custom_details": {"names": evidence_names(payload)},
+                "custom_details": {
+                    "names": evidence_names(payload),
+                    "user": payload.get("user"),
+                    "host": payload.get("host"),
+                    "when": payload.get("when"),
+                    "where": payload.get("where"),
+                    "id": payload.get("incident_id"),
+                },
             },
         }
         response = httpx.post("https://events.pagerduty.com/v2/enqueue", json=body, timeout=10.0)
@@ -136,11 +212,15 @@ class EmailNotifier:
         password = unquote(parsed.password) if parsed.password else None
 
         names = evidence_names(payload)
+        who = str(payload.get("user") or "").strip()
+        subject = names[0] if names else str(payload.get("incident_id", "sentinal-trace"))
+        if who and who != "unknown":
+            subject = f"{subject} · {who}"
         message = EmailMessage()
-        message["Subject"] = names[0] if names else str(payload.get("incident_id", "sentinal-trace"))
+        message["Subject"] = subject
         message["From"] = self.from_addr
         message["To"] = self.to_addr
-        message.set_content("\n".join(names) + "\n" if names else "")
+        message.set_content(render_evidence_message(payload))
 
         context = ssl.create_default_context()
         if parsed.scheme == "smtps":
@@ -337,13 +417,20 @@ def sanitize_incident_payload(
     severity: str | None,
     adapter: str,
     names: list[str] | None = None,
+    source: str | None = None,
 ) -> dict[str, Any]:
     labels = evidence_names({"names": list(names or [])})
-    summary = "\n".join(labels) if labels else incident_id
+    summary = " · ".join(labels) if labels else incident_id
     return {
         "summary": summary,
         "names": labels,
         "incident_id": incident_id,
+        "user": local_username(),
+        "domain": local_domain(),
+        "host": local_host(),
+        "when": evidence_when(),
+        "where": evidence_where(adapter, source),
+        "adapter": adapter,
         "dedupe_key": f"sentinal-trace:{incident_id}:{action}",
         "pagerduty_severity": "critical" if severity in {"SEV-0", "SEV-1"} else "warning",
     }

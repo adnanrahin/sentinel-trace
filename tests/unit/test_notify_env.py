@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from tests.conftest import SYNTHETIC_AWS
 
-from sentinal_trace.notifications.providers import notifiers_from_env, sanitize_incident_payload
+from sentinal_trace.notifications.providers import (
+    notifiers_from_env,
+    render_evidence_message,
+    sanitize_incident_payload,
+)
 from sentinal_trace.status import protection_status
 
 
@@ -138,6 +142,27 @@ def test_notify_test_cli_sends_email_when_env_set(monkeypatch, tmp_path) -> None
     assert SYNTHETIC_AWS not in str(sent)
 
 
+def test_evidence_template_uses_os_user(monkeypatch) -> None:
+    monkeypatch.setenv("USERNAME", "rahin")
+    monkeypatch.setenv("COMPUTERNAME", "DEV-BOX")
+    payload = sanitize_incident_payload(
+        incident_id="case-1",
+        action="block",
+        category="credential",
+        severity="SEV-0",
+        adapter="cursor_hook",
+        names=["DATABRICKS_CLIENT_SECRET"],
+        source="<cursor-chat>",
+    )
+    assert payload["user"] == "rahin"
+    assert payload["host"] == "DEV-BOX"
+    assert payload["where"] == "Cursor chat"
+    body = render_evidence_message(payload)
+    assert body.startswith("Observed\nDATABRICKS_CLIENT_SECRET\n")
+    assert "User: rahin" in body
+    assert "Host: DEV-BOX" in body
+
+
 def test_test_alert_payload_has_no_prompt_or_key() -> None:
     payload = sanitize_incident_payload(
         incident_id="notify-test",
@@ -151,5 +176,10 @@ def test_test_alert_payload_has_no_prompt_or_key() -> None:
     assert "prompt" not in blob
     assert SYNTHETIC_AWS not in blob
     assert payload["names"] == ["DATABRICKS_CLIENT_SECRET"]
-    assert "security" not in blob.lower()
-    assert "leak" not in blob.lower()
+    body = render_evidence_message(payload)
+    assert "Observed" in body
+    assert "DATABRICKS_CLIENT_SECRET" in body
+    assert "User:" in body
+    assert "When:" in body
+    assert "security" not in body.lower()
+    assert "leak" not in body.lower()

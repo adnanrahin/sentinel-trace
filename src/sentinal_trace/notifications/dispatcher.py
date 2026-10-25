@@ -20,6 +20,7 @@ def enqueue_incident(
     adapter: str,
     providers: list[str],
     names: list[str] | None = None,
+    source: str | None = None,
 ) -> None:
     payload = sanitize_incident_payload(
         incident_id=incident_id,
@@ -28,6 +29,7 @@ def enqueue_incident(
         severity=severity,
         adapter=adapter,
         names=names,
+        source=source,
     )
     body = json.dumps(payload)
     for provider in providers:
