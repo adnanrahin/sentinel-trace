@@ -1,27 +1,14 @@
 # Getting started
 
-1. Install the package, then register Cursor so **every Send is scanned** (one command, then restart Cursor):
+Follow the **one-shot walkthrough in [README.md](../README.md)** (install, tests, Cursor Send hook, Slack/Gmail, limits).
 
-   ```bash
-   python -m pip install -e ".[dev]"
-   sentinal-trace install
-   sentinal-trace doctor
-   ```
+Short form:
 
-2. Automated tests:
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest -q --tb=short
+sentinal-trace install
+sentinal-trace status
+```
 
-   ```bash
-   python -m pytest
-   ```
-
-3. Optional: scan a file from the CLI (not required for chat):
-
-   ```bash
-   sentinal-trace scan path examples/demo-synthetic.txt --format json
-   ```
-
-4. Optional git pre-commit:
-
-   ```bash
-   sentinal-trace install-hook
-   ```
+Fully quit and reopen Cursor. Do not paste real secrets while testing.

@@ -6,6 +6,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from sentinal_trace.adapters.cursor_hook import cursor_block_enabled
+from sentinal_trace.notifications.providers import (
+    active_team_notify_path,
+    notifiers_from_env,
+    notify_identity,
+)
+
 HOOK_MARKER = "sentinal_trace.adapters.cursor_hook"
 
 
@@ -28,20 +35,27 @@ def protection_status(cursor_home: Path | None = None) -> dict[str, Any]:
     home = cursor_home or _cursor_home()
     hooks_path = home / "hooks.json"
     enabled = _hooks_configured(hooks_path)
+    providers = sorted(notifiers_from_env())
+    team_notify = active_team_notify_path()
     return {
         "automatic_protection": enabled,
+        "notifications_configured": providers,
+        "notifications_ready": bool(providers),
+        "notifications_identity": notify_identity(),
+        "team_notify_file": str(team_notify) if team_notify else None,
         "application": "Cursor local chat",
         "mechanism": "beforeSubmitPrompt",
-        "can_block": enabled,
+        "can_block": enabled and cursor_block_enabled(),
         "can_redact_in_place": False,
         "requires_mcp_tool_call": False,
         "covers_cursor_cloud_agents": False,
         "covers_other_ai_apps": False,
         "hooks_file": str(hooks_path),
         "message": (
-            "Automatic pre-send protection is ON for local Cursor chat."
+            "Cursor Send is scanned. Blocking is off; email/webhook fire if configured. "
+            "Set SENTINAL_TRACE_CURSOR_BLOCK=1 to refuse the send."
             if enabled
-            else "Automatic protection is OFF. Run `sentinal-trace install` and restart Cursor."
+            else "Automatic scan is OFF. Run `sentinal-trace install` and restart Cursor."
         ),
     }
 

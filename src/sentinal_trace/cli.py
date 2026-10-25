@@ -213,10 +213,116 @@ def install_cmd() -> None:
     paths = install_user()
     typer.echo(
         json.dumps(
-            {"installed": paths, "next": "Restart Cursor. Sending a chat now runs sentinal-trace automatically."},
+            {
+                "installed": paths,
+                "next": "Restart Cursor. Engineers do not set Gmail; the hook reads the team notify file if present.",
+            },
             indent=2,
         )
     )
+
+
+@app.command("sample-paste")
+def sample_paste_cmd() -> None:
+    """Print a synthetic payment log to paste into Cursor. Not a live credential."""
+    from sentinal_trace.samples import payment_failure_log
+
+    typer.echo(payment_failure_log())
+
+
+@app.command("notify-test")
+def notify_test_cmd() -> None:
+    """Send a sanitized test alert using webhook/email env vars. Contains no secret."""
+    from sentinal_trace.notifications.providers import (
+        NotificationError,
+        notifiers_from_env,
+        notify_env_visibility,
+        notify_identity,
+        sanitize_incident_payload,
+        save_notify_env,
+    )
+
+    notifiers = notifiers_from_env()
+    if not notifiers:
+        typer.echo(
+            json.dumps(
+                {
+                    "sent": False,
+                    "reason": (
+                        "Set SENTINAL_TRACE_SMTP_URL + SENTINAL_TRACE_ALERT_EMAIL, "
+                        "or SENTINAL_TRACE_WEBHOOK_URL. Git Bash: export in this window, "
+                        "or put KEY=value lines in ~/.sentinal-trace/notify.env."
+                    ),
+                    "visible": notify_env_visibility(),
+                },
+                indent=2,
+            )
+        )
+        raise typer.Exit(1)
+    payload = sanitize_incident_payload(
+        incident_id="notify-test",
+        action="notify-test",
+        category="credential",
+        severity="SEV-0",
+        adapter="notify-test",
+    )
+    errors: dict[str, str] = {}
+    for name, notifier in notifiers.items():
+        try:
+            notifier.send(payload)
+        except Exception as exc:
+            if isinstance(exc, NotificationError):
+                errors[name] = str(exc)
+            else:
+                cause = exc.__cause__ or exc
+                errors[name] = type(cause).__name__
+    replayed = 0
+    saved: list[str] = []
+    if not errors:
+        from sentinal_trace.audit.store import AuditStore
+        from sentinal_trace.notifications.dispatcher import drain_outbox
+
+        store = AuditStore(AppSettings().db_path)
+        before = len(store.pending_notifications())
+        drain_outbox(store, notifiers)
+        replayed = max(0, before - len(store.pending_notifications()))
+        saved = save_notify_env()
+    typer.echo(
+        json.dumps(
+            {
+                "sent": not errors,
+                "providers": sorted(notifiers),
+                "errors": errors,
+                "replayed_outbox": replayed,
+                "saved_for_cursor": saved,
+                "identity": notify_identity(),
+                "note": "Alert has no prompt and no secret. Cursor reads Windows user env, not Git Bash export.",
+            },
+            indent=2,
+        )
+    )
+    if errors:
+        raise typer.Exit(1)
+
+
+@app.command("notify-save")
+def notify_save_cmd() -> None:
+    """Copy Git Bash/process notify env into ~/.sentinal-trace/notify.env for Cursor."""
+    from sentinal_trace.notifications.providers import notify_env_path, save_notify_env
+
+    saved = save_notify_env()
+    typer.echo(
+        json.dumps(
+            {
+                "saved": saved,
+                "path": str(notify_env_path()),
+                "next": "Paste a log in Cursor. Git Bash export is not visible to Cursor.",
+            },
+            indent=2,
+        )
+    )
+    if not saved:
+        raise typer.Exit(1)
 
 
 @app.command("uninstall")

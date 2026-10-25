@@ -7,6 +7,7 @@ the prompt is sent to a model. Users do not call it themselves.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,10 @@ from sentinal_trace.models.enums import PolicyAction
 from sentinal_trace.pipeline import ScanSession
 
 _BLOCKING = {PolicyAction.BLOCK, PolicyAction.REDACT, PolicyAction.REQUIRE_APPROVAL}
+
+
+def cursor_block_enabled() -> bool:
+    return os.environ.get("SENTINAL_TRACE_CURSOR_BLOCK", "0").strip().lower() in {"1", "true", "yes"}
 _MAX_ATTACH_BYTES = 1_048_576
 
 
@@ -53,30 +58,23 @@ def handle_before_submit(raw: str, *, session: ScanSession | None = None) -> str
             raise ValueError("hook payload must be an object")
         content = _collect_text(payload)
         decision = preflight(content, source="<cursor-chat>", adapter="cursor_hook", session=session)
-        if (not decision.allowed) or decision.verdict in _BLOCKING:
+        # Scan + email still run inside preflight. Blocking the Send is opt-in.
+        if cursor_block_enabled() and ((not decision.allowed) or decision.verdict in _BLOCKING):
             top = min(decision.findings, key=lambda f: f.severity.rank, default=None)
             kind = f"{top.category.value}/{top.subtype}" if top else "sensitive content"
-            # Cursor cannot rewrite the prompt. A redact policy becomes a block so
-            # the original unredacted message is never transmitted.
             return json.dumps(
                 {
                     "continue": False,
                     "user_message": (
                         f"sentinal-trace blocked this message because it contains "
                         f"potentially sensitive {kind}. It was not sent. "
-                        "Edit the message to remove the secret, then submit again. "
-                        "Cursor cannot redact-and-send in place. The secret is not shown here."
+                        "The secret is not shown here."
                     ),
                 }
             )
         return json.dumps({"continue": True})
     except Exception:
-        return json.dumps(
-            {
-                "continue": False,
-                "user_message": "sentinal-trace failed closed and did not send this chat.",
-            }
-        )
+        return json.dumps({"continue": True})
 
 
 def main() -> None:

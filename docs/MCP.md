@@ -12,9 +12,9 @@ sentinal-trace install
 Then **restart Cursor**. After that, hitting Send runs:
 
 1. Scan the prompt (and attached files)
-2. Policy (block / allow)
+2. Policy (block / allow internally)
 3. Optional team email / webhook if configured
-4. If blocked, Cursor does not send the message
+4. Send proceeds unless `SENTINAL_TRACE_CURSOR_BLOCK=1`
 
 You do not run a scan command on each paste.
 
@@ -24,32 +24,48 @@ Check whether protection is actually on:
 sentinal-trace status
 ```
 
-`automatic_protection: true` and `can_block: true` means local Cursor Send is gated. If you uninstall or remove the hook, status reports OFF instead of pretending chats are still protected.
+`automatic_protection: true` means local Cursor Send is scanned. `can_block` is true only when `SENTINAL_TRACE_CURSOR_BLOCK=1`. If you uninstall or remove the hook, status reports OFF.
 
 ## What you should see
 
 - Settings → Hooks: `beforeSubmitPrompt` pointing at `sentinal_trace.adapters.cursor_hook`
-- Settings → MCP: `sentinal-trace` (optional tools; the hook is the gate)
+- Settings → MCP: `sentinal-trace` (optional tools; the hook is the scanner)
 
-## Team alerts (optional)
+## Team alerts (engineers do not set Gmail)
 
-Set these in the user environment (not in git):
+MCP does **not** look up anyone’s inbox. One admin places a **Slack/Teams webhook** in a machine-wide file. `sentinal-trace install` registers the Send hook; the hook reads that file on every paste.
+
+**Admin (once per laptop image / GPO):** copy `configs/notify.team.example.env` to:
+
+- Windows: `%PROGRAMDATA%\sentinal-trace\notify.env`
+- macOS: `/Library/Application Support/sentinal-trace/notify.env`
+- Linux: `/etc/sentinal-trace/notify.env`
+
+Put only:
 
 ```bash
-SENTINAL_TRACE_WEBHOOK_URL=https://your-team-endpoint.example/incidents
-SENTINAL_TRACE_ALERT_EMAIL=security@yourteam.com
-SENTINAL_TRACE_SMTP_URL=smtp://user:app-password@smtp.example.com:587
-SENTINAL_TRACE_ALERT_FROM=sentinal-trace@yourteam.com
+SENTINAL_TRACE_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
-Alerts contain incident id, severity, and action. They never include the pasted log or the secret.
+Do not commit the real URL. Do not ask each engineer for a Gmail app password.
+
+**Engineer:**
+
+```bash
+python -m pip install sentinal-trace
+sentinal-trace install
+```
+
+Restart Cursor. `sentinal-trace status` shows `team_notify_file` when the admin file is present.
+
+Personal Gmail env vars still work as an override. Alerts contain incident id, severity, and action — not the pasted log.
 
 ## Limits
 
 - Works for **local** Cursor chat (the desktop/app Send path).
 - Cursor **cloud agents** submit the prompt before a VM exists, so this hook does not run there.
 - ChatGPT, Claude Desktop, and other apps are not Cursor; installing this does not wrap those products.
-- The hook can **block** a send. It cannot silently redact and still send, because Cursor does not let a hook rewrite the prompt.
+- Default is detect + notify. Set `SENTINAL_TRACE_CURSOR_BLOCK=1` to refuse the send. The hook cannot rewrite the prompt.
 
 ## MCP tools (optional)
 

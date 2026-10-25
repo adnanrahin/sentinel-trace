@@ -15,7 +15,7 @@ def test_python_guard_claims_block() -> None:
     assert AdapterCapability.BLOCK in guard.capabilities
 
 
-def test_cursor_hook_blocks_but_does_not_claim_in_place_redact() -> None:
+def test_cursor_hook_does_not_claim_block_by_default() -> None:
     hook = next(a for a in ADAPTERS if a.name == "cursor_hook")
-    assert AdapterCapability.BLOCK in hook.capabilities
+    assert AdapterCapability.BLOCK not in hook.capabilities
     assert AdapterCapability.REDACT not in hook.capabilities

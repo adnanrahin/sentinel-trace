@@ -43,7 +43,7 @@ def install_cursor_hooks(cursor_home: Path | None = None) -> Path:
         data["hooks"] = hooks
     entries = [e for e in (hooks.get("beforeSubmitPrompt") or []) if isinstance(e, dict)]
     entries = [e for e in entries if "sentinal_trace.adapters.cursor_hook" not in str(e.get("command", ""))]
-    entries.append({"command": _hook_command(), "failClosed": True})
+    entries.append({"command": _hook_command(), "failClosed": False})
     hooks["beforeSubmitPrompt"] = entries
     _write_json(path, data)
     return path
@@ -66,6 +66,18 @@ def install_cursor_mcp(cursor_home: Path | None = None) -> Path:
 
 
 def install_user() -> dict[str, str]:
+    from sentinal_trace.notifications.providers import active_team_notify_path
+
     hooks = install_cursor_hooks()
     mcp = install_cursor_mcp()
-    return {"hooks": str(hooks), "mcp": str(mcp), "command": _hook_command()}
+    team = active_team_notify_path()
+    result = {"hooks": str(hooks), "mcp": str(mcp), "command": _hook_command()}
+    if team is not None:
+        result["team_notify"] = str(team)
+    else:
+        result["team_notify"] = ""
+        result["team_notify_hint"] = (
+            "No team notify file. Admin: put SENTINAL_TRACE_WEBHOOK_URL in "
+            r"%PROGRAMDATA%\sentinal-trace\notify.env (Windows) so engineers skip Gmail."
+        )
+    return result

@@ -54,15 +54,9 @@ ADAPTERS = (
     ),
     AdapterInfo(
         name="cursor_hook",
-        capabilities=frozenset(
-            {
-                AdapterCapability.SCAN,
-                AdapterCapability.WARN,
-                AdapterCapability.BLOCK,
-            }
-        ),
-        enforcement="pre-send: Cursor beforeSubmitPrompt runs on every local chat Send",
-        notes="Can block. Cannot redact in place. Does not cover Cursor cloud agents or other AI apps.",
+        capabilities=frozenset({AdapterCapability.SCAN, AdapterCapability.WARN}),
+        enforcement="scan on every local Cursor Send; block only if SENTINAL_TRACE_CURSOR_BLOCK=1",
+        notes="Default is detect + notify. Does not cover Cursor cloud agents or other AI apps.",
     ),
     AdapterInfo(
         name="mcp",
