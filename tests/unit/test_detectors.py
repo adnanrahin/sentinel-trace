@@ -22,7 +22,7 @@ def test_benign_rfc1918_example_is_not_critical(session: ScanSession) -> None:
 
 
 def test_severity_and_confidence_independent(session: ScanSession) -> None:
-    result = scan_text("contact demo.user@example.com", session=session)
+    result = scan_text("contact alice@contoso.invalid", session=session)
     emails = [f for f in result.findings if f.subtype == "email"]
     assert emails
     assert emails[0].severity == Severity.SEV_3

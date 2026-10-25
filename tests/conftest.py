@@ -9,9 +9,12 @@ from sentinal_trace.pipeline import ScanSession
 
 # Built at runtime so the repository never contains vendor-shaped key literals
 # that GitHub push protection treats as live secrets.
-SYNTHETIC_AWS = "".join(("AKI", "A", "0" * 12, "FAKEEX"))
+# AWS access key ids are AKIA + exactly 16 alphanumeric characters.
+SYNTHETIC_AWS = "".join(("AKI", "A", "0" * 10, "FAKEEX"))
 SYNTHETIC_GITHUB = "".join(("gh", "p_", "0" * 36))
 SYNTHETIC_STRIPE = "".join(("sk_", "test_", "0" * 24))
+assert len(SYNTHETIC_AWS) == 20
+assert len(SYNTHETIC_GITHUB) == 40
 
 
 @pytest.fixture

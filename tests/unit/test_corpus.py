@@ -6,7 +6,7 @@ from tests.conftest import SYNTHETIC_AWS, SYNTHETIC_GITHUB
 LABELED = [
     ("aws", f"aws_access_key_id={SYNTHETIC_AWS}", True, "credential"),
     ("github", f"export TOKEN={SYNTHETIC_GITHUB}", True, "credential"),
-    ("benign-ip", "example documentation 192.168.1.1 rfc1918", False, "credential"),
+    ("benign-ip", "documentation 10.0.0.1 rfc1918", False, "credential"),
     ("hello", "hello world", False, "credential"),
 ]
 
