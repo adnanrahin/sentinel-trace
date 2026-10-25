@@ -87,6 +87,7 @@ def _placeholder_value(value: str) -> bool:
         return True
     return len(compact) >= 3 and set(compact) <= {".", "*", "x", "X"}
 
+
 _PRIVATE_KEY = re.compile(
     r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
     r"[\s\S]+?"

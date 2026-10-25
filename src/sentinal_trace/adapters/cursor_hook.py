@@ -22,6 +22,8 @@ _BLOCKING = {PolicyAction.BLOCK, PolicyAction.REDACT, PolicyAction.REQUIRE_APPRO
 
 def cursor_block_enabled() -> bool:
     return os.environ.get("SENTINAL_TRACE_CURSOR_BLOCK", "0").strip().lower() in {"1", "true", "yes"}
+
+
 _MAX_ATTACH_BYTES = 1_048_576
 
 
