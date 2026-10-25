@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from sentinal_trace.pipeline import ScanSession, scan_text
 from tests.conftest import SYNTHETIC_AWS, SYNTHETIC_GITHUB
+
+from sentinal_trace.pipeline import ScanSession, scan_text
 
 LABELED = [
     ("aws", f"aws_access_key_id={SYNTHETIC_AWS}", True, "credential"),

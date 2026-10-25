@@ -101,9 +101,7 @@ def _finding_matches(finding: Finding, rule: PolicyRule) -> bool:
         return False
     if spec.min_severity and finding.severity.rank > spec.min_severity.rank:
         return False
-    if spec.min_confidence and finding.confidence.rank > spec.min_confidence.rank:
-        return False
-    return True
+    return not (spec.min_confidence and finding.confidence.rank > spec.min_confidence.rank)
 
 
 def _exception_applies(result: ScanResult, exception: PolicyException) -> bool:

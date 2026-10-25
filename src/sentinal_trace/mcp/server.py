@@ -175,9 +175,7 @@ class McpServer:
             }
         if name == "redact_content":
             text = self._bound_text(args)
-            result, matches, document = scan_text(
-                text, adapter="mcp", session=self.session, raw=True
-            )
+            result, matches, document = scan_text(text, adapter="mcp", session=self.session, raw=True)
             return {
                 "redacted": redact_matches(document.text, matches),
                 "content_changed": True,

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from tests.conftest import SYNTHETIC_AWS, SYNTHETIC_GITHUB, SYNTHETIC_STRIPE
+
 from sentinal_trace.models.enums import Category, Confidence, Severity
 from sentinal_trace.pipeline import ScanSession, scan_text
-from tests.conftest import SYNTHETIC_AWS, SYNTHETIC_GITHUB, SYNTHETIC_STRIPE
 
 
 def test_known_synthetic_credentials_detected(session: ScanSession) -> None:
@@ -36,7 +37,8 @@ def test_constructed_stripe_key_is_detected(session: ScanSession) -> None:
 
 
 def test_pasted_log_bearer_token_is_detected(session: ScanSession) -> None:
-    result = scan_text("INFO auth failed Authorization: Bearer synthetic-demo-token-not-a-live-credential", session=session)
+    log_line = "INFO auth failed Authorization: Bearer synthetic-demo-token-not-a-live-credential"
+    result = scan_text(log_line, session=session)
     assert any(f.subtype == "bearer_token" for f in result.findings)
 
 

@@ -11,6 +11,8 @@ from sentinal_trace.detectors.engine import collect_matches
 from sentinal_trace.models.enums import PolicyAction
 from sentinal_trace.models.findings import Finding, ScanResult
 from sentinal_trace.normalization.document import NormalizedDocument, normalize_file, normalize_text
+from sentinal_trace.notifications.dispatcher import drain_outbox, enqueue_incident
+from sentinal_trace.notifications.providers import Notifier, notifiers_from_env
 from sentinal_trace.policy.engine import PolicyConfig, evaluate_policy, load_policy
 from sentinal_trace.security.hmac_key import load_or_create_hmac_key
 from sentinal_trace.security.paths import PathSecurityError, iter_files, resolve_within
@@ -18,15 +20,26 @@ from sentinal_trace.security.sanitize import fingerprint_value
 
 
 class ScanSession:
-    def __init__(self, settings: AppSettings, policy: PolicyConfig | None = None) -> None:
+    def __init__(
+        self,
+        settings: AppSettings,
+        policy: PolicyConfig | None = None,
+        notifiers: dict[str, Notifier] | None = None,
+    ) -> None:
         self.settings = settings
         settings.home.mkdir(parents=True, exist_ok=True)
         self.policy = policy or load_policy(settings.policy_path if settings.policy_path.exists() else None)
         self.store = AuditStore(settings.db_path)
         self._hmac_key = load_or_create_hmac_key(settings.hmac_key_path)
+        self._notifiers = notifiers
 
     def fingerprint(self, value: str) -> str:
         return fingerprint_value(value, self._hmac_key)
+
+    def _active_notifiers(self) -> dict[str, Notifier]:
+        if self._notifiers is not None:
+            return self._notifiers
+        return notifiers_from_env()
 
     def record(self, result: ScanResult, action: PolicyAction) -> str | None:
         if not result.findings and action in {PolicyAction.ALLOW}:
@@ -34,7 +47,7 @@ class ScanSession:
         top = min(result.findings, key=lambda f: (f.severity.rank, f.confidence.rank), default=None)
         fingerprint = top.fingerprint if top else None
         try:
-            return self.store.record_incident(
+            incident_id = self.store.record_incident(
                 adapter=result.adapter,
                 source=result.source,
                 category=top.category.value if top else None,
@@ -46,6 +59,27 @@ class ScanSession:
             )
         except Exception:
             return None
+        if action in self.policy.notify_on and incident_id:
+            self._alert(incident_id, action, top)
+        return incident_id
+
+    def _alert(self, incident_id: str, action: PolicyAction, top: Finding | None) -> None:
+        notifiers = self._active_notifiers()
+        if not notifiers:
+            return
+        try:
+            enqueue_incident(
+                self.store,
+                incident_id=incident_id,
+                action=action.value,
+                category=top.category.value if top else None,
+                severity=top.severity.value if top else None,
+                adapter="sentinal-trace",
+                providers=list(notifiers),
+            )
+            drain_outbox(self.store, notifiers)
+        except Exception:
+            return
 
 
 def _findings_from(document: NormalizedDocument, matches: list[RawMatch], session: ScanSession) -> list[Finding]:

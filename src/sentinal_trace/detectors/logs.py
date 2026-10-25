@@ -25,11 +25,46 @@ class LogLeakDetector(Detector):
         text = document.text
         matches: list[RawMatch] = []
         specs = (
-            (_BEARER, "bearer_token", Severity.SEV_0, Confidence.HIGH, 93, "Revoke the bearer token; do not paste Authorization headers."),
-            (_API_HEADER, "api_header", Severity.SEV_0, Confidence.HIGH, 90, "Rotate the API key that appeared in the log header."),
-            (_COOKIE, "session_cookie", Severity.SEV_1, Confidence.MEDIUM, 72, "Invalidate the session cookie leaked in the log."),
-            (_AWS_SECRET, "aws_secret_access_key", Severity.SEV_0, Confidence.HIGH, 94, "Rotate the AWS secret access key immediately."),
-            (_BASIC, "basic_auth", Severity.SEV_0, Confidence.HIGH, 91, "Rotate the basic-auth credential leaked in the log."),
+            (
+                _BEARER,
+                "bearer_token",
+                Severity.SEV_0,
+                Confidence.HIGH,
+                93,
+                "Revoke the bearer token; do not paste Authorization headers.",
+            ),
+            (
+                _API_HEADER,
+                "api_header",
+                Severity.SEV_0,
+                Confidence.HIGH,
+                90,
+                "Rotate the API key that appeared in the log header.",
+            ),
+            (
+                _COOKIE,
+                "session_cookie",
+                Severity.SEV_1,
+                Confidence.MEDIUM,
+                72,
+                "Invalidate the session cookie leaked in the log.",
+            ),
+            (
+                _AWS_SECRET,
+                "aws_secret_access_key",
+                Severity.SEV_0,
+                Confidence.HIGH,
+                94,
+                "Rotate the AWS secret access key immediately.",
+            ),
+            (
+                _BASIC,
+                "basic_auth",
+                Severity.SEV_0,
+                Confidence.HIGH,
+                91,
+                "Rotate the basic-auth credential leaked in the log.",
+            ),
         )
         for pattern, subtype, severity, confidence, score, remediation in specs:
             for found in pattern.finditer(text):

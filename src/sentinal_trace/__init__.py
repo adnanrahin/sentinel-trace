@@ -7,7 +7,6 @@ from sentinal_trace.models.findings import Finding, ScanResult
 from sentinal_trace.pipeline import scan_path, scan_text
 
 __all__ = [
-    "__version__",
     "AdapterCapability",
     "Confidence",
     "Finding",
@@ -15,6 +14,7 @@ __all__ = [
     "PolicyAction",
     "ScanResult",
     "Severity",
+    "__version__",
     "preflight",
     "scan_path",
     "scan_text",

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from tests.conftest import SYNTHETIC_AWS
 from typer.testing import CliRunner
 
 from sentinal_trace.cli import app
 from sentinal_trace.enforcement.preflight import GuardedCall, TransmissionBlocked, preflight
 from sentinal_trace.pipeline import ScanSession, scan_text
-from tests.conftest import SYNTHETIC_AWS
 
 runner = CliRunner()
 
@@ -51,7 +51,7 @@ def test_cli_capabilities() -> None:
     result = runner.invoke(app, ["capabilities"])
     assert result.exit_code == 0
     assert "mcp" in result.stdout
-    assert "does not intercept" in result.stdout.lower() or "detection-only" in result.stdout
+    assert "cursor_hook" in result.stdout
 
 
 def test_oversized_input_is_truncated(session: ScanSession) -> None:

@@ -6,11 +6,10 @@ from sentinal_trace.detectors.base import RawMatch
 from sentinal_trace.models.enums import Category, Confidence, Severity
 from sentinal_trace.normalization.document import NormalizedDocument
 
-_BENIGN = re.compile(
-    r"(?i)\b(example|sample|dummy|synthetic|placeholder|fake|xxx+|lorem|documentation|rfc1918)\b"
-)
+_BENIGN = re.compile(r"(?i)\b(example|sample|dummy|synthetic|placeholder|fake|xxx+|lorem|documentation|rfc1918)\b")
 _INJECTION = re.compile(
-    r"(?i)(?:ignore (?:all )?(?:previous|prior) (?:instructions|policy)|set action (?:to )?allow|disable (?:the )?scanner)"
+    r"(?i)(?:ignore (?:all )?(?:previous|prior) (?:instructions|policy)"
+    r"|set action (?:to )?allow|disable (?:the )?scanner)"
 )
 
 

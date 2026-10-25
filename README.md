@@ -4,15 +4,20 @@
 
 Nothing is uploaded. State lives in `~/.sentinal-trace/` (SQLite metadata only — never the raw secret).
 
-This product was designed as an exposure-prevention engine, not a dashboard. MCP is included so Cursor and other clients can *call* scan tools. MCP does **not** intercept every chat message by itself.
+This product was designed as an exposure-prevention engine, not a dashboard. In Cursor, `sentinal-trace install` registers a Send hook so every local chat is scanned without a per-message command. MCP tools are optional extras; they are not what intercepts chat.
 
 ## Quick start
 
 ```bash
 python -m pip install -e ".[dev]"
+sentinal-trace install
+```
+
+Restart Cursor. After that, every local chat Send is scanned automatically — no extra click per paste.
+
+```bash
 sentinal-trace doctor
-sentinal-trace scan path examples/demo-synthetic.txt
-sentinal-trace preflight --text "hello"
+python -m pytest
 ```
 
 Demo file values are **synthetic**. Do not treat them as live credentials.
@@ -30,11 +35,13 @@ Demo file values are **synthetic**. Do not treat them as live credentials.
 
 | Integration | Prevents send? | How |
 |-------------|----------------|-----|
+| **Cursor local chat** (`sentinal-trace install`) | Yes, on Send | `beforeSubmitPrompt` hook; no extra click |
 | `sentinal-trace preflight` CLI | Yes, for that invocation | Exit 2 and `payload: null` |
 | `GuardedCall` / `preflight()` in Python | Yes, for wrapped calls | Raises `TransmissionBlocked`; callee never runs |
 | Git pre-commit (`sentinal-trace install-hook`) | Yes, for the commit | Hook aborts on block |
 | CI `sentinal-trace scan` | Yes, for the pipeline | Job fails on exit 2 |
-| MCP tools in Cursor / Claude | **No (detection-only)** | Host must call tools; chats not auto-intercepted |
+| MCP tools only | No | Agent must call tools; not a send firewall |
+| Cursor cloud agents / other AI apps | No | Those hosts do not run this hook |
 
 Run `sentinal-trace capabilities` for the live list.
 

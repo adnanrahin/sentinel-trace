@@ -53,6 +53,18 @@ ADAPTERS = (
         notes="Protects git commits, not AI chat prompts.",
     ),
     AdapterInfo(
+        name="cursor_hook",
+        capabilities=frozenset(
+            {
+                AdapterCapability.SCAN,
+                AdapterCapability.WARN,
+                AdapterCapability.BLOCK,
+            }
+        ),
+        enforcement="pre-send: Cursor beforeSubmitPrompt runs on every local chat Send",
+        notes="Can block. Cannot redact in place. Does not cover Cursor cloud agents or other AI apps.",
+    ),
+    AdapterInfo(
         name="mcp",
         capabilities=frozenset(
             {
@@ -61,8 +73,8 @@ ADAPTERS = (
                 AdapterCapability.REDACT,
             }
         ),
-        enforcement="detection-only unless the client calls scan/redact tools before sending",
-        notes="MCP does not intercept all prompts from Cursor, Claude, or other hosts.",
+        enforcement="tools only; does not intercept chat. Use cursor_hook for automatic Send blocking",
+        notes="MCP is optional assist. The Cursor hook is what gates every local chat.",
     ),
     AdapterInfo(
         name="ci",

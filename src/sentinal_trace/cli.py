@@ -148,10 +148,32 @@ def config_cmd() -> None:
 
 @app.command("doctor")
 def doctor_cmd() -> None:
+    from sentinal_trace.status import protection_status
+
     settings = AppSettings()
     settings.home.mkdir(parents=True, exist_ok=True)
     session = ScanSession(settings)
-    typer.echo(f"ok home={settings.home} db={settings.db_path.exists()} policy_version={session.policy.version}")
+    status = protection_status()
+    typer.echo(
+        json.dumps(
+            {
+                "ok": True,
+                "home": str(settings.home),
+                "db": settings.db_path.exists(),
+                "policy_version": session.policy.version,
+                **status,
+            },
+            indent=2,
+        )
+    )
+
+
+@app.command("status")
+def status_cmd() -> None:
+    """Whether automatic Cursor protection is actually on, and what it can block."""
+    from sentinal_trace.status import protection_status
+
+    typer.echo(json.dumps(protection_status(), indent=2))
 
 
 @app.command("capabilities")
@@ -173,6 +195,37 @@ def mcp_cmd() -> None:
     from sentinal_trace.mcp.server import run_stdio_server
 
     run_stdio_server()
+
+
+@app.command("hook")
+def hook_cmd() -> None:
+    """Cursor beforeSubmitPrompt entrypoint. Cursor runs this; people do not."""
+    from sentinal_trace.adapters.cursor_hook import main as hook_main
+
+    hook_main()
+
+
+@app.command("install")
+def install_cmd() -> None:
+    """Register Cursor Send intercept + MCP so every local chat is scanned. Restart Cursor after."""
+    from sentinal_trace.install import install_user
+
+    paths = install_user()
+    typer.echo(
+        json.dumps(
+            {"installed": paths, "next": "Restart Cursor. Sending a chat now runs sentinal-trace automatically."},
+            indent=2,
+        )
+    )
+
+
+@app.command("uninstall")
+def uninstall_cmd() -> None:
+    """Remove the Cursor Send hook. Status will report protection OFF."""
+    from sentinal_trace.status import protection_status, uninstall_cursor_hooks
+
+    uninstall_cursor_hooks()
+    typer.echo(json.dumps(protection_status(), indent=2))
 
 
 @app.command("install-hook")

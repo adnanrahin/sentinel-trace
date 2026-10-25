@@ -1,8 +1,59 @@
-# MCP
+# Cursor install (automatic chat scan)
 
-sentinal-trace ships a stdio MCP server on the same wheel as the CLI. A push to `main` builds the package, publishes a GitHub Release, and you install it with pip, then run `sentinal-trace mcp`.
+MCP tools alone do **not** see every message. Cursor only sends a prompt to those tools if the agent decides to call them.
 
-## Tools
+The thing that actually gates **every local chat Send** is Cursor’s `beforeSubmitPrompt` hook. `sentinal-trace install` registers that hook **and** the MCP server in one step.
+
+```bash
+python -m pip install -e ".[dev]"
+sentinal-trace install
+```
+
+Then **restart Cursor**. After that, hitting Send runs:
+
+1. Scan the prompt (and attached files)
+2. Policy (block / allow)
+3. Optional team email / webhook if configured
+4. If blocked, Cursor does not send the message
+
+You do not run a scan command on each paste.
+
+Check whether protection is actually on:
+
+```bash
+sentinal-trace status
+```
+
+`automatic_protection: true` and `can_block: true` means local Cursor Send is gated. If you uninstall or remove the hook, status reports OFF instead of pretending chats are still protected.
+
+## What you should see
+
+- Settings → Hooks: `beforeSubmitPrompt` pointing at `sentinal_trace.adapters.cursor_hook`
+- Settings → MCP: `sentinal-trace` (optional tools; the hook is the gate)
+
+## Team alerts (optional)
+
+Set these in the user environment (not in git):
+
+```bash
+SENTINAL_TRACE_WEBHOOK_URL=https://your-team-endpoint.example/incidents
+SENTINAL_TRACE_ALERT_EMAIL=security@yourteam.com
+SENTINAL_TRACE_SMTP_URL=smtp://user:app-password@smtp.example.com:587
+SENTINAL_TRACE_ALERT_FROM=sentinal-trace@yourteam.com
+```
+
+Alerts contain incident id, severity, and action. They never include the pasted log or the secret.
+
+## Limits
+
+- Works for **local** Cursor chat (the desktop/app Send path).
+- Cursor **cloud agents** submit the prompt before a VM exists, so this hook does not run there.
+- ChatGPT, Claude Desktop, and other apps are not Cursor; installing this does not wrap those products.
+- The hook can **block** a send. It cannot silently redact and still send, because Cursor does not let a hook rewrite the prompt.
+
+## MCP tools (optional)
+
+If a client calls them:
 
 | Tool | Purpose |
 |------|---------|
@@ -15,24 +66,3 @@ sentinal-trace ships a stdio MCP server on the same wheel as the CLI. A push to 
 | get_incident_summary | Local incident metadata |
 
 There is no tool that runs shell commands.
-
-## Cursor
-
-Project `.cursor/mcp.json` or user `~/.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "sentinal-trace": {
-      "command": "sentinal-trace",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-Reload Cursor → Settings → MCP. You should see `sentinal-trace`.
-
-## Capability statement
-
-MCP **does not** wrap the model’s send path. If the agent never calls `scan_text` / `evaluate_policy`, content is not checked. Add a project rule if you want the agent to call scan tools before pasting secrets — that is still best-effort, not a kernel-level block.

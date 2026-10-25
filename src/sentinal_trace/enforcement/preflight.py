@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 from sentinal_trace.config.settings import AppSettings
 from sentinal_trace.models.decisions import PreflightDecision
@@ -89,11 +89,11 @@ def preflight(
     )
 
 
-class GuardedCall:
+class GuardedCall(Generic[T]):
     """Wrap an LLM (or any send) function so blocked content is never submitted."""
 
     def __init__(self, send: Callable[[str], T], *, session: ScanSession | None = None) -> None:
-        self._send = send
+        self._send: Callable[[str], T] = send
         self._session = session
 
     def __call__(self, content: str) -> T:

@@ -6,7 +6,7 @@
 - [x] Phase 1 — detectors, context, policy, CLI scan, JSON, exit codes, synthetic tests
 - [x] Phase 2 — preflight, SQLite audit, HMAC fingerprints, leak tests
 - [x] Phase 3 — stdio MCP tools, path validation, Cursor install docs
-- [x] Phase 4 — enforcing adapters: Python `GuardedCall`, git pre-commit, CI; MCP labeled detection-only
+- [x] Phase 4 — Cursor `beforeSubmitPrompt` auto-scan on Send (`sentinal-trace install`); Python `GuardedCall`; git pre-commit; CI; MCP labeled tools-only
 - [x] Phase 5 — outbox, webhook/PagerDuty/email interfaces, mocked delivery tests
 - [x] Phase 6 — e2e tests, ruff/mypy/pytest CI, git-push GitHub Release workflow
 

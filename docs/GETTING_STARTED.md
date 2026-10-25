@@ -1,29 +1,27 @@
 # Getting started
 
-1. Install (dev checkout):
+1. Install the package, then register Cursor so **every Send is scanned** (one command, then restart Cursor):
 
    ```bash
    python -m pip install -e ".[dev]"
-   sentinal-trace version
+   sentinal-trace install
+   sentinal-trace doctor
    ```
 
-2. Scan the synthetic demo:
+2. Automated tests:
+
+   ```bash
+   python -m pytest
+   ```
+
+3. Optional: scan a file from the CLI (not required for chat):
 
    ```bash
    sentinal-trace scan path examples/demo-synthetic.txt --format json
    ```
 
-3. Preflight (this is the enforcement API):
-
-   ```bash
-   sentinal-trace preflight --text "hello"
-   echo %ERRORLEVEL%
-   ```
-
-4. Optional git hook:
+4. Optional git pre-commit:
 
    ```bash
    sentinal-trace install-hook
    ```
-
-5. Optional MCP: see [MCP.md](MCP.md).

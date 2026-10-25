@@ -70,14 +70,13 @@ class NetworkDetector(Detector):
                     risk_factors=("internal_dns",),
                 )
             )
-        if _K8S.search(text):
-            found = _K8S.search(text)
-            assert found is not None
+        found_secret = _K8S.search(text)
+        if found_secret:
             matches.append(
                 RawMatch(
-                    start=found.start(),
-                    end=found.end(),
-                    value=found.group(0),
+                    start=found_secret.start(),
+                    end=found_secret.end(),
+                    value=found_secret.group(0),
                     category=Category.INFRASTRUCTURE,
                     subtype="kubernetes_secret",
                     severity=Severity.SEV_1,

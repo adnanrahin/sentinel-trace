@@ -58,9 +58,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str, Severity, Confidence, int, str]] = [
         "Treat the JWT as compromised and issue a new session.",
     ),
     (
-        re.compile(
-            r"(?i)(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://[^\s'\"<>]+"
-        ),
+        re.compile(r"(?i)(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://[^\s'\"<>]+"),
         "connection_string",
         Severity.SEV_0,
         Confidence.HIGH,
@@ -75,7 +73,9 @@ _ASSIGNMENT = re.compile(
 )
 
 _PRIVATE_KEY = re.compile(
-    r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]+?-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
+    r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
+    r"[\s\S]+?"
+    r"-----END (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"
 )
 
 

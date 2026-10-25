@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import smtplib
@@ -104,10 +105,8 @@ class EmailNotifier:
         except (OSError, smtplib.SMTPException) as exc:
             raise NotificationError("smtp delivery failed") from exc
         finally:
-            try:
+            with contextlib.suppress(smtplib.SMTPException):
                 smtp.quit()
-            except smtplib.SMTPException:
-                pass
 
 
 def notifiers_from_env() -> dict[str, Notifier]:

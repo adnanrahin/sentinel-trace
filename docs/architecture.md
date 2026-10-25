@@ -30,12 +30,15 @@ CLI / Python / Git hook / MCP
 
 MCP tools run when a host invokes them. Cursor and similar clients do not guarantee a pre-send hook for every user message. The MCP adapter therefore advertises scan/warn/redact only.
 
-Genuine prevention in v0.1:
+Genuine prevention:
 
-1. CLI `preflight`
-2. `GuardedCall` around application send functions
-3. Git pre-commit hook
-4. CI scan job
+1. Cursor `beforeSubmitPrompt` after `sentinal-trace install` (every local chat Send)
+2. CLI `preflight`
+3. `GuardedCall` around application send functions
+4. Git pre-commit hook
+5. CI scan job
+
+MCP tools are optional and do not intercept chat by themselves.
 
 ## Local state
 

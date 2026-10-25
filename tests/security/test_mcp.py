@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 
+from tests.conftest import SYNTHETIC_AWS
+
 from sentinal_trace.mcp.server import McpServer
 from sentinal_trace.pipeline import ScanSession
-from tests.conftest import SYNTHETIC_AWS
 
 
 def _call(server: McpServer, name: str, arguments: dict) -> dict:

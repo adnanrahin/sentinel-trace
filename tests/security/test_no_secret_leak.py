@@ -4,12 +4,12 @@ import logging
 from pathlib import Path
 
 import pytest
+from tests.conftest import SYNTHETIC_AWS, SYNTHETIC_GITHUB
 
 from sentinal_trace.enforcement.preflight import preflight
 from sentinal_trace.pipeline import ScanSession, scan_text
 from sentinal_trace.security.logging import RedactingFilter
 from sentinal_trace.security.sanitize import scrub_for_log
-from tests.conftest import SYNTHETIC_AWS, SYNTHETIC_GITHUB
 
 
 def test_redaction_removes_secret(session: ScanSession) -> None:
